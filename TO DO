@@ -1,0 +1,14 @@
+TODO / PENDING TO FIX:
+
+Modularize the code! this monolith is terrible
+Add button for discarding changes, don't rely on the X
+Picking multiple cells throws error at line 159
+When an already existing activity is edited, you are not allowed to add new cells. 
+When an already existing activity is edited, Button should say "Update activity" instead
+Drag & drop is messy and unprecise
+Drag and drop is activated even when mouse is not clicked
+Saving json appends to the name
+Add real backend support
+Send data to SAP
+
+
