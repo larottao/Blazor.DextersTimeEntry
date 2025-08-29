@@ -1,0 +1,34 @@
+﻿
+
+
+
+<nav style="border-radius:0px;background-color:rgb(255, 255, 255);border-color:rgb(74, 74, 74) rgb(74, 74, 74) rgb(61, 205, 88);position:relative;min-height:18.22px;margin-bottom:0px;box-sizing:border-box;display:block;border-bottom:1px solid rgb(61, 205, 88);text-align:center;transition:opacity 0.25s ease-in-out;border-width:0px 0px 1px;border-top-style:none;border-right-style:none;border-left-style:none;border-top-color:rgb(74, 74, 74);border-right-color:rgb(74, 74, 74);border-left-color:rgb(74, 74, 74);border-image:none;border-bottom-style:solid;border-bottom-color:rgb(61, 205, 88);">
+ 
+
+
+        <div class="buttons">
+            <button class="prev-btn" @onclick="PreviousWeekClick">&lt; Previous Week</button>
+            <button class="today-btn" @onclick="GoToTodayClick">This week</button>
+            <button class="next-btn" @onclick="NextWeekClick">Next Week &gt;</button>
+        </div>
+
+        <br>
+
+</nav>
+
+
+
+
+
+
+@code {
+    // Define the EventCallback parameters
+    [Parameter]
+    public EventCallback PreviousWeekClick { get; set; }
+
+    [Parameter]
+    public EventCallback GoToTodayClick { get; set; }
+
+    [Parameter]
+    public EventCallback NextWeekClick { get; set; }
+}

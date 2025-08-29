@@ -1,0 +1,211 @@
+﻿@using System.Globalization
+@using DextersTimeEntry.Client.Models
+
+@if (SelectedCells != null && SelectedCells.Any())
+{
+    <div class="selections-panel"
+         style="top:@TopPx; left:@LeftPx;"
+         @onmousedown="OnMouseDown"
+         @onmousemove="OnMouseMove"
+         @onmouseup="OnMouseUp">
+
+        <button class="close-panel-button" @onclick="HandleClosePanel">X</button>
+               
+        <br>
+
+        <h4>Selected Times</h4>
+        <ul>
+            @foreach (var group in GroupedTimeSlots)
+            {
+                <li>@group</li>
+            }
+        </ul>
+
+        <div class="activity-input">
+            
+            <input @bind="ActivityDescription" placeholder="Activity Description" />
+
+            <input @bind="ActivityProjectCode" placeholder="Project Code ex: Training" />
+
+            <input @bind="ActivityAAType" placeholder="AA Type ex: '0860'" />
+         
+
+            <br>
+
+
+            @if (CurrentActivity == null)
+            {
+                <button @onclick="HandleAddActivity">Add Activity</button>
+            }
+            else
+            {
+                @if (HasRemovedCells)
+                {
+                    <button @onclick="HandleSaveActivityChanges">Save Changes</button>
+                }
+                else
+                {
+                    <button @onclick="HandleSaveActivity">Update Activity</button>
+                }
+                <button class="delete-button" @onclick="HandleDeleteActivity">Delete Activity</button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<DateTime> SelectedCells { get; set; } = new();
+    [Parameter] public string[] Days { get; set; } = new string[7];
+    [Parameter] public Activity CurrentActivity { get; set; }
+    [Parameter] public bool HasRemovedCells { get; set; }
+    [Parameter] public EventCallback<Activity> OnAddActivity { get; set; }
+    [Parameter] public EventCallback<Activity> OnSaveActivity { get; set; }
+    [Parameter] public EventCallback<Activity> OnDeleteActivity { get; set; }
+    [Parameter] public EventCallback OnClosePanel { get; set; }
+    [Parameter] public EventCallback OnSaveActivityChanges { get; set; }
+
+    // Parameters for initial positioning passed from the parent component
+    [Parameter] public string PanelTopPx { get; set; }
+    [Parameter] public string PanelLeftPx { get; set; }
+
+    // Internal state for the panel's position, used for drag-and-drop
+    private string TopPx;
+    private string LeftPx;
+
+    private bool IsDragging = false;
+    private double StartX, StartY;
+    private double StartLeft, StartTop;
+
+    private string ActivityDescription { get; set; }
+    private string ActivityProjectCode { get; set; }
+    private string ActivityAAType { get; set; }
+
+    private List<string> GroupedTimeSlots => GroupAndFormatTimeSlots();
+
+    protected override void OnParametersSet()
+    {
+        if (CurrentActivity != null)
+        {
+            ActivityDescription = CurrentActivity.Name;
+        }
+        else
+        {
+            ActivityDescription = string.Empty;
+        }
+
+        // Use the initial position from the parent when the component is first rendered
+        TopPx = PanelTopPx;
+        LeftPx = PanelLeftPx;
+    }
+
+    private void OnMouseDown(MouseEventArgs e)
+    {
+        IsDragging = true;
+        StartX = e.ClientX;
+        StartY = e.ClientY;
+
+        StartLeft = double.Parse(LeftPx.Replace("px", ""));
+        StartTop = double.Parse(TopPx.Replace("px", ""));
+    }
+
+    private void OnMouseMove(MouseEventArgs e)
+    {
+        if (!IsDragging) return;
+
+        var dx = e.ClientX - StartX;
+        var dy = e.ClientY - StartY;
+
+        LeftPx = $"{StartLeft + dx}px";
+        TopPx = $"{StartTop + dy}px";
+
+        StateHasChanged();
+    }
+
+    private void OnMouseUp(MouseEventArgs e)
+    {
+        IsDragging = false;
+    }
+
+    private List<string> GroupAndFormatTimeSlots()
+    {
+        var groupedList = new List<string>();
+        if (!SelectedCells.Any()) return groupedList;
+
+        var sortedCells = SelectedCells.OrderBy(c => c).ToList();
+
+        DateTime start = sortedCells[0];
+        DateTime end = sortedCells[0];
+
+        for (int i = 1; i < sortedCells.Count; i++)
+        {
+            if (sortedCells[i] == end.AddHours(1))
+            {
+                end = sortedCells[i];
+            }
+            else
+            {
+                groupedList.Add(FormatRange(start, end));
+                start = sortedCells[i];
+                end = sortedCells[i];
+            }
+        }
+        groupedList.Add(FormatRange(start, end));
+
+        return groupedList;
+    }
+
+    private string FormatRange(DateTime start, DateTime end)
+    {
+        var dayName = Days[(int)start.DayOfWeek - 1];
+        var startDate = start.ToShortDateString();
+        var startTime = start.ToString("HH:mm");
+        var endTime = end.AddHours(1).ToString("HH:mm");
+
+        return $"{dayName}, {startDate} from {startTime} to {endTime}";
+    }
+
+    private async Task HandleAddActivity()
+    {
+        if (string.IsNullOrWhiteSpace(ActivityDescription)) return;
+
+        var newActivity = new Activity
+        {
+            Id = Guid.NewGuid(),
+            Name = ActivityDescription,
+            Description = ActivityDescription,
+            TimeSlots = SelectedCells
+        };
+
+        await OnAddActivity.InvokeAsync(newActivity);
+    }
+
+    private async Task HandleSaveActivity()
+    {
+        if (string.IsNullOrWhiteSpace(ActivityDescription)) return;
+
+        var updatedActivity = new Activity
+        {
+            Id = CurrentActivity.Id,
+            Name = ActivityDescription,
+            Description = ActivityDescription,
+            TimeSlots = SelectedCells
+        };
+
+        await OnSaveActivity.InvokeAsync(updatedActivity);
+    }
+
+    private async Task HandleSaveActivityChanges()
+    {
+        await OnSaveActivityChanges.InvokeAsync();
+    }
+
+    private async Task HandleDeleteActivity()
+    {
+        await OnDeleteActivity.InvokeAsync(CurrentActivity);
+    }
+
+    private async Task HandleClosePanel()
+    {
+        await OnClosePanel.InvokeAsync();
+    }
+}

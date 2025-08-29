@@ -1,0 +1,186 @@
+﻿.schedule {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    grid-auto-rows: 30px;
+    border: 1px solid #ccc;
+}
+
+.schedule-header {
+    background: #f4f4f4;
+    padding: 8px;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+}
+
+.time {
+    background: #fafafa;
+    text-align: right;
+    padding: 4px 6px;
+    border-bottom: 1px solid #eee;
+    border-right: 1px solid #ccc;
+    font-size: 12px;
+}
+
+.cell {
+    border-bottom: 1px solid #eee;
+    border-right: 1px solid #ccc;
+    cursor: pointer;
+    background: white;
+}
+
+    .cell:not(.selected):hover {
+        background: #eaf3ff;
+    }
+
+    .cell.selected {
+        background: #4a90e2 !important;
+        color: white;
+    }
+
+.day-header {
+    text-align: center;
+    padding: 8px;
+    background: #ddd;
+    border-right: 1px solid #ccc;
+}
+
+.buttons {
+    margin-top: 15px;
+}
+
+button {
+    margin-right: 10px;
+    padding: 8px 12px;
+    background: #3dcd58;
+    color: #ffffff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+    button:hover {
+        background: #357ab8;
+    }
+
+    button.clear {
+        background: #d9534f;
+    }
+
+        button.clear:hover {
+            background: #c9302c;
+        }
+
+.message {
+    margin-top: 10px;
+    white-space: pre-line;
+    font-family: monospace;
+}
+
+.day-header.today {
+    background: #ffc107; /* yellow highlight for today */
+}
+
+
+.week-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.week-header button {
+    padding: 6px 12px;
+    background: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.week-header button:hover {
+    background: #357ab8;
+}
+
+.week-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.week-header button {
+    padding: 6px 12px;
+    background: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.week-header button:hover {
+    background: #357ab8;
+}
+
+.today-button {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.today-button button {
+    padding: 5px 10px;
+    background: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.today-button button:hover {
+    background: #fb8c00;
+}
+
+
+.buttons {
+    display: flex;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    margin-top: 15px;
+
+}
+
+.prev-btn {
+    margin-right: auto; /* pushes it to the left */
+    background-color: #3dcd58;
+    color: white;
+}
+
+.today-btn {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #3dcd58;
+    color: white;
+}
+
+.next-btn {
+    margin-left: auto; /* pushes it to the right */
+    background-color: #3dcd58;
+    color: white;
+}
+
+.close-panel-button {
+    /* Position the button absolutely within the parent container */
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    /* Styling for the button itself */
+    background-color: transparent;
+    border: none;
+    color: #000;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 1000; /* Ensure it's always on top */
+}

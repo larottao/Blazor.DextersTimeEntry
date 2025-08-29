@@ -1,0 +1,330 @@
+﻿@using System.Globalization
+@using DextersTimeEntry.Client.Models
+@using System.Text.Json
+@inject IJSRuntime JS
+
+
+<PrimaryNav Title="@($"Weekly Schedule - {DisplayedMonth} {DisplayedYear}, Week {DisplayedWeekNumber}")"></PrimaryNav>
+
+
+<SecondaryNav PreviousWeekClick="PreviousWeek"
+              GoToTodayClick="GoToToday"
+              NextWeekClick="NextWeek">
+</SecondaryNav>
+
+<br>
+
+<div class="schedule">
+    <div class="schedule-header"></div>
+    @for (int dayIndex = 0; dayIndex < 7; dayIndex++)
+    {
+        var dateForDay = DisplayedWeekStart.AddDays(dayIndex);
+        var dayName = Days[dayIndex];
+        var displayText = $"{dayName} {dateForDay.Day}";
+        var highlightClass = (DisplayedWeekStart == StartOfWeek && dateForDay.Date == Today.Date) ? "today" : "";
+        <div class="day-header @highlightClass">@displayText</div>
+    }
+
+    @for (int hour = 0; hour < 24; hour++)
+    {
+        <div class="time">@hour.ToString("D2"):00</div>
+        @for (int dayIndex = 0; dayIndex < 7; dayIndex++)
+        {
+            var cellDateTime = DisplayedWeekStart.AddDays(dayIndex).AddHours(hour);
+            var key = (dayIndex, hour);
+            var activityName = GetActivityNameForCell(cellDateTime);
+
+            var isMarkedForRemoval = CellsToRemove.Contains(cellDateTime);
+
+            <div class="cell @(SelectedCells.Contains(cellDateTime) ? "selected" : "") @(activityName != null && !isMarkedForRemoval ? "activity-cell" : "")"
+                 @onclick="e => ToggleSelection(e, cellDateTime)"
+                 @oncontextmenu:preventDefault="true"
+                 @oncontextmenu="e => HandleRightClick(e, cellDateTime)">
+                @if (activityName != null && !isMarkedForRemoval)
+                {
+                    <span class="activity-name">@activityName</span>
+                }
+            </div>
+        }
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(SelectionsMessage))
+{
+    <div class="message">@SelectionsMessage</div>
+}
+
+@if (ShowSelectionsPanel)
+{
+    <SelectionsPanel SelectedCells="@SelectedCellsList"
+                     Days="@Days"
+                     CurrentActivity="@CurrentActivity"
+                     HasRemovedCells="@CellsToRemove.Any()"
+                     PanelTopPx="@PanelTopPx"
+                     PanelLeftPx="@PanelLeftPx"
+                     OnAddActivity="AddActivity"
+                     OnSaveActivity="SaveActivity"
+                     OnDeleteActivity="DeleteActivity"
+                     OnSaveActivityChanges="SaveActivityChanges"
+                     OnClosePanel="HandlePanelClose" />
+}
+
+<br>
+
+<button @onclick="SaveActivitiesToJson">Save Activities</button>
+<button @onclick="LoadActivitiesFromJson">Load Activities</button>
+
+
+@code {
+    private string[] Days = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+    private HashSet<DateTime> SelectedCells = new();
+    private HashSet<DateTime> CellsToRemove = new();
+    private string SelectionsMessage = "";
+    private bool ShowSelectionsPanel = false;
+
+    private string PanelTopPx = "50px";
+    private string PanelLeftPx = "50px";
+
+    private DateTime Today;
+    private DateTime StartOfWeek;
+    private DateTime DisplayedWeekStart;
+
+    private int CurrentYear;
+    private int CurrentWeekNumber;
+
+    private List<Activity> Activities = new();
+    private Dictionary<DateTime, Activity> ActivityMap = new();
+    private Activity CurrentActivity;
+
+    private string DisplayedMonth => DisplayedWeekStart.ToString("MMMM", CultureInfo.InvariantCulture);
+    private int DisplayedYear => DisplayedWeekStart.Year;
+    private int DisplayedWeekNumber => CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(
+        DisplayedWeekStart, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+
+    protected override void OnInitialized()
+    {
+        Today = DateTime.Today;
+
+        int diff = (7 + (Today.DayOfWeek - DayOfWeek.Monday)) % 7;
+        StartOfWeek = Today.AddDays(-diff).Date;
+        DisplayedWeekStart = StartOfWeek;
+
+        CurrentYear = Today.Year;
+        CurrentWeekNumber = CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(
+            Today, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+    }
+
+    private void ToggleSelection(MouseEventArgs e, DateTime key)
+    {
+        if (ActivityMap.ContainsKey(key))
+        {
+            CurrentActivity = ActivityMap[key];
+            SelectedCells.Clear();
+            CellsToRemove.Clear();
+            foreach (var timeSlot in CurrentActivity.TimeSlots)
+            {
+                SelectedCells.Add(timeSlot);
+            }
+        }
+        else
+        {
+            CurrentActivity = null;
+            if (SelectedCells.Contains(key))
+            {
+                SelectedCells.Remove(key);
+            }
+            else
+            {
+                SelectedCells.Add(key);
+            }
+        }
+
+        ShowSelectionsPanel = SelectedCells.Any();
+        PositionSelectionsPanel(e);
+        StateHasChanged();
+    }
+
+    private void HandleRightClick(MouseEventArgs e, DateTime key)
+    {
+        if (ActivityMap.ContainsKey(key))
+        {
+            if (SelectedCells.Contains(key))
+            {
+                SelectedCells.Remove(key);
+                CellsToRemove.Add(key);
+            }
+            else if (CellsToRemove.Contains(key))
+            {
+                CellsToRemove.Remove(key);
+                SelectedCells.Add(key);
+            }
+            PositionSelectionsPanel(e);
+        }
+        else
+        {
+            ClearSelections();
+        }
+
+        ShowSelectionsPanel = SelectedCells.Any() || CellsToRemove.Any();
+        StateHasChanged();
+    }
+
+    // New method to calculate and set the panel's position
+    private void PositionSelectionsPanel(MouseEventArgs e)
+    {
+        // Add a small offset to the cursor position
+        PanelTopPx = $"{e.ClientY + 10}px";
+        PanelLeftPx = $"{e.ClientX + 10}px";
+    }
+
+    private void HandlePanelClose()
+    {
+        ClearSelections();
+    }
+
+    private void ClearSelections()
+    {
+        SelectedCells.Clear();
+        CellsToRemove.Clear();
+        CurrentActivity = null;
+        SelectionsMessage = "";
+        ShowSelectionsPanel = false;
+        StateHasChanged();
+    }
+
+    private void PreviousWeek() => DisplayedWeekStart = DisplayedWeekStart.AddDays(-7);
+    private void NextWeek() => DisplayedWeekStart = DisplayedWeekStart.AddDays(7);
+    private void GoToToday() => DisplayedWeekStart = StartOfWeek;
+
+    private List<DateTime> SelectedCellsList => SelectedCells.ToList();
+
+    private void AddActivity(Activity newActivity)
+    {
+        Activities.Add(newActivity);
+        UpdateActivityMap(newActivity);
+        ClearAndClosePanel();
+    }
+
+    private void SaveActivity(Activity updatedActivity)
+    {
+        var existingActivity = Activities.FirstOrDefault(a => a.Id == updatedActivity.Id);
+        if (existingActivity != null)
+        {
+            ClearActivityFromMap(existingActivity);
+
+            existingActivity.Name = updatedActivity.Name;
+            existingActivity.Description = updatedActivity.Description;
+            existingActivity.TimeSlots = updatedActivity.TimeSlots;
+            UpdateActivityMap(existingActivity);
+        }
+
+        ClearAndClosePanel();
+    }
+
+    private void SaveActivityChanges()
+    {
+        if (CurrentActivity != null && CellsToRemove.Any())
+        {
+            var newTimeSlots = CurrentActivity.TimeSlots.Except(CellsToRemove).ToList();
+
+            ClearActivityFromMap(CurrentActivity);
+
+            CurrentActivity.TimeSlots = newTimeSlots;
+
+            UpdateActivityMap(CurrentActivity);
+
+            if (!CurrentActivity.TimeSlots.Any())
+            {
+                Activities.Remove(CurrentActivity);
+            }
+        }
+
+        ClearAndClosePanel();
+    }
+
+    private void DeleteActivity(Activity activityToDelete)
+    {
+        Activities.Remove(activityToDelete);
+        ClearActivityFromMap(activityToDelete);
+        ClearAndClosePanel();
+    }
+
+    private void ClearAndClosePanel()
+    {
+        SelectedCells.Clear();
+        CellsToRemove.Clear();
+        CurrentActivity = null;
+        ShowSelectionsPanel = false;
+        StateHasChanged();
+    }
+
+    private void UpdateActivityMap(Activity activity)
+    {
+        foreach (var timeSlot in activity.TimeSlots)
+        {
+            ActivityMap[timeSlot] = activity;
+        }
+    }
+
+    private void ClearActivityFromMap(Activity activity)
+    {
+        foreach (var timeSlot in activity.TimeSlots)
+        {
+            if (ActivityMap.ContainsKey(timeSlot))
+            {
+                ActivityMap.Remove(timeSlot);
+            }
+        }
+    }
+
+    private string GetActivityNameForCell(DateTime cellDateTime)
+    {
+        if (ActivityMap.ContainsKey(cellDateTime))
+        {
+            return ActivityMap[cellDateTime].Name;
+        }
+        return null;
+    }
+
+    private async Task SaveActivitiesToJson()
+    {
+        if (!Activities.Any()) return;
+
+        var json = JsonSerializer.Serialize(Activities, new JsonSerializerOptions { WriteIndented = true });
+        await JS.InvokeVoidAsync("jsonStorage.saveFile", "activities.json", json);
+    }
+
+    private async Task LoadActivitiesFromJson()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string>("jsonStorage.loadFile");
+            if (string.IsNullOrEmpty(json)) return;
+
+            var loadedActivities = JsonSerializer.Deserialize<List<Activity>>(json);
+            if (loadedActivities != null)
+            {
+                Activities = loadedActivities;
+                ActivityMap.Clear();
+                foreach (var activity in Activities)
+                {
+                    UpdateActivityMap(activity);
+                }
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading JSON: {ex.Message}");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // optionally try to load from a default file prompt
+           // await LoadActivitiesFromJson();
+        }
+    }
+}
